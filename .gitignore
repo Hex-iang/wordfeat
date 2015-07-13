@@ -4,3 +4,51 @@
 *.ptx
 *.cubin
 *.fatbin
+
+# exclude input files
+*.input
+
+
+# Compiled Object files
+*.slo
+*.lo
+*.o
+*.obj
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+*.dll
+
+# Fortran module files
+*.mod
+
+# Compiled Static libraries
+*.lai
+*.la
+*.a
+*.lib
+
+# Executables
+*.exe
+*.out
+*.app
+
+## CMake.gitignore
+cmake
+CMakeCache.txt
+CMakeFiles
+Makefile
+cmake_install.cmake
+install_manifest.txt
+Testing
+CTestTestfile.cmake
+
+## Linux.gitignore
+.*
+!.gitignore
+*~
