@@ -9,10 +9,14 @@ project(wordfeat)
 # Include directory for project headers
 include_directories(${PROJECT_SOURCE_DIR}/include)
 
+# Include cmake module
+list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/Modules)
+
+
 #
-# Setting for Nvidia based
+# Setting for Nvidia CUDA GPU 
 #
-find_package(CUDA)
+find_package(CUDA REQUIRED)
 
 if (CUDA_FOUND)
   # For some MPs it may be necessary to specify the compute capability of your
@@ -35,7 +39,11 @@ if (CUDA_FOUND)
       endif ()
   endif ()
 
-  set(EXECUTABLES feature_extract feature_extract_naive)
+  find_package(Glog REQUIRED)
+  include_directories(SYSTEM ${GLOG_INCLUDE_DIRS})
+  list(APPEND wordfeat_LINK_LIBRARIES ${GLOG_LIBRARIES})
+
+  set(EXECUTABLES init feature_extract feature_extract_naive)
   foreach (TARGET ${EXECUTABLES})
     CUDA_ADD_EXECUTABLE(
       ${TARGET}
