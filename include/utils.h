@@ -314,7 +314,7 @@ namespace wfeatInternal
 
 void wfeatTime_start(const wfeatTimeType timeType, const std::string timeMessage)
 {
-    wfeatAssert(timeType >= Generic && timeType < wfeatTimeTypeINVALID, "Unrecognized wfeatTimeType value");
+    wfeatAssert(timeType >= GENERIC && timeType < wfeatTimeTypeINVALID, "Unrecognized wfeatTimeType value");
 
     wfeatInternal::wfeatTimer timer;
     timer.start();
@@ -329,7 +329,7 @@ void wfeatTime_start(const wfeatTimeType timeType, const std::string timeMessage
 
 void wfeatTime_stop(const wfeatTimeType timeType, const std::string timeMessage)
 {
-    wfeatAssert(timeType >= Generic && timeType < wfeatTimeTypeINVALID, "Unrecognized wfeatTimeType value");
+    wfeatAssert(timeType >= GENERIC && timeType < wfeatTimeTypeINVALID, "Unrecognized wfeatTimeType value");
 
     const wfeatInternal::wfeatTimerInfo searchInfo = { timeType, timeMessage, wfeatInternal::wfeatTimer() };
     const wfeatInternal::wfeatTimerInfoList::iterator iter = std::find(wfeatInternal::timerInfoList.begin(), wfeatInternal::timerInfoList.end(), searchInfo);
