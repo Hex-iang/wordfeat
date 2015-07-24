@@ -39,7 +39,6 @@
 *.app
 
 ## CMake.gitignore
-cmake
 CMakeCache.txt
 CMakeFiles
 Makefile
@@ -52,3 +51,6 @@ CTestTestfile.cmake
 .*
 !.gitignore
 *~
+
+## Binary to Ignore
+bin/*

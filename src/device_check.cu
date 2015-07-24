@@ -1,22 +1,29 @@
 #include <utils.h>
-#include <glog/logging.h>
 
-void Initialization(int &argc, const char * argv[])
+void Initialization(int &argc, char * argv[])
 {
   // Google logging
-  google::InitGoogleLogging(argv[0]);
+  ::google::InitGoogleLogging(argv[0]);
   // Provide a backtrace on failure
-  google::InstallFailureSignalHandler();
+  ::google::InstallFailureSignalHandler();
+
+#ifndef GFLAGS_GFLAGS_H_
+  namespace gflags = google;
+#endif 
+
+  gflags::ParseCommandLineFlags(&argc, &argv, true);
+
 }
 
-int main(int argc, const char* argv[])
+int main(int argc, char* argv[])
 {
   Initialization(argc, argv);
 
   int deviceCount = 0;
   cudaGetDeviceCount(& deviceCount);
+  LOG(INFO) << "CUDA Device count: " << deviceCount << ".";
 
-  wfTime_start(GPU, "Getting GPU properties.");
+  wfeatTime_start(GPU, "Getting GPU properties");
 
   for( int devNum = 0; devNum < deviceCount; devNum++ ) 
   {
@@ -33,7 +40,8 @@ int main(int argc, const char* argv[])
         LOG(INFO) << "There are " << deviceCount << " devices supporting CUDA";
       }   
     }
-          // output corresponding information about devise
+    
+    // output corresponding information about devise
     LOG(INFO) << "Device " <<  devNum <<  " name: " <<  deviceProp.name;
     LOG(INFO) << " Computational Capabilities: " <<  deviceProp.major << "." << deviceProp.minor;
     LOG(INFO) << " Maximum global memory size: " <<  deviceProp.totalGlobalMem;
@@ -49,5 +57,5 @@ int main(int argc, const char* argv[])
     LOG(INFO) << " Warp size: " << deviceProp.warpSize;
   }
   
-  wfTime_stop(GPU, "Finish GPU property retrival.");
+  wfeatTime_stop(GPU, "Getting GPU properties");
 }

@@ -42,8 +42,12 @@ if (CUDA_FOUND)
   find_package(Glog REQUIRED)
   include_directories(SYSTEM ${GLOG_INCLUDE_DIRS})
   list(APPEND wordfeat_LINK_LIBRARIES ${GLOG_LIBRARIES})
+  
+  find_package(GFlags REQUIRED)
+  include_directories(SYSTEM ${GFLAGS_INCLUDE_DIRS})
+  list(APPEND wordfeat_LINK_LIBRARIES ${GFLAGS_LIBRARIES})
 
-  set(EXECUTABLES init feature_extract feature_extract_naive)
+  set(EXECUTABLES device_check feature_extract feature_extract_naive)
   foreach (TARGET ${EXECUTABLES})
     CUDA_ADD_EXECUTABLE(
       ${TARGET}

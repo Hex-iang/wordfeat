@@ -1,4 +1,10 @@
-// Utility function
+// Utility functions for cross plantform programming
+// 
+// Code Copy Right Specification
+// 
+// * Some part of this code is modified from: 
+//      https://github.com/ashwin/coursera-heterogeneous.git 
+//   
 #pragma once
 
 //===============================================================
@@ -22,6 +28,11 @@
 #include <vector>
 
 //---------------------------------------------------------------
+// Google Library
+#include "gflags/gflags.h"
+#include "glog/logging.h"
+
+//---------------------------------------------------------------
 // CUDA
 #if defined(__CUDACC__)
     #include <cuda.h>
@@ -31,10 +42,10 @@
 //===============================================================
 // Macros
 //
-#define WFDEBUG
+#define NDEBUG
 
-#ifdef WFDEBUG
-    #define wfAssert(condition, message)                                                                  \
+#ifdef NDEBUG
+    #define wfeatAssert(condition, message)                                                                  \
         do                                                                                                \
         {                                                                                                 \
             if (!(condition))                                                                             \
@@ -44,10 +55,8 @@
                 std::exit(EXIT_FAILURE);                                                                  \
             }                                                                                             \
         } while (0)
-
-#undef WFDEBUG
 #else
-    #define wfAssert(condition, message)
+    #define wfeatAssert(condition, message)
 #endif
 
 
@@ -55,11 +64,11 @@
 // Namespace
 //
 
-namespace wfInternal 
+namespace wfeatInternal 
 {
 // String Error Output
 #if defined(_WIN32)
-    std::string wfStrerror(int errnum)
+    std::string wfeatStrerror(int errnum)
     {
         std::string str;
         char buffer[1024];
@@ -73,7 +82,7 @@ namespace wfInternal
         return str;
     }
 #elif (_POSIX_C_SOURCE >= 200112L || _XOPEN_SOURCE >= 600 || __APPLE__) && ! _GNU_SOURCE
-    std::string wfStrerror(int errnum)
+    std::string wfeatStrerror(int errnum)
     {
         std::string str;
         char buffer[1024];
@@ -87,7 +96,7 @@ namespace wfInternal
         return str;
     }
 #elif defined(_GNU_SOURCE)
-    std::string wfStrerror(int errnum)
+    std::string wfeatStrerror(int errnum)
     {
         std::string str;
         char buffer[1024];
@@ -100,7 +109,7 @@ namespace wfInternal
         return str;
     }
 #else
-    std::string wfStrerror(int errnum)
+    std::string wfeatStrerror(int errnum)
     {
         std::string str;
 
@@ -112,7 +121,7 @@ namespace wfInternal
         return str;
     }
 #endif
-} // namespace wfInternal
+} // namespace wfeatInternal
 
 
 //===============================================================
@@ -120,19 +129,18 @@ namespace wfInternal
 //
 
 #if defined(__CUDACC__)
-    #define wfTimerDeviceSynchronize() cudaDeviceSynchronize()
+    #define wfeatTimerDeviceSynchronize() cudaDeviceSynchronize()
 #else
-    #define wfTimerDeviceSynchronize()
+    #define wfeatTimerDeviceSynchronize()
 #endif
 
 // Namespace because Windows.h causes errors
-namespace wfInternal
+namespace wfeatInternal
 {
 #if defined(_WIN32)
     #include <Windows.h>
 
-    // wfTimer class adapted from: https://bitbucket.org/ashwin/cudatimer
-    class wfTimer
+    class wfeatTimer
     {
     private:
         double        timerResolution;
@@ -140,7 +148,7 @@ namespace wfInternal
         LARGE_INTEGER endTime;
 
     public:
-        wfTimer::wfTimer()
+        wfeatTimer::wfeatTimer()
         {
             LARGE_INTEGER freq;
             QueryPerformanceFrequency(&freq);
@@ -149,13 +157,13 @@ namespace wfInternal
 
         void start()
         {
-            wfTimerDeviceSynchronize();
+            wfeatTimerDeviceSynchronize();
             QueryPerformanceCounter(&startTime);
         }
 
         void stop()
         {
-            wfTimerDeviceSynchronize();
+            wfeatTimerDeviceSynchronize();
             QueryPerformanceCounter(&endTime);
         }
 
@@ -167,7 +175,7 @@ namespace wfInternal
 #elif defined(__APPLE__)
     #include <mach/mach_time.h>
 
-    class wfTimer
+    class wfeatTimer
     {
     private:
         uint64_t startTime;
@@ -176,13 +184,13 @@ namespace wfInternal
     public:
         void start()
         {
-            wfTimerDeviceSynchronize();
+            wfeatTimerDeviceSynchronize();
             startTime = mach_absolute_time();
         }
 
         void stop()
         {
-            wfTimerDeviceSynchronize();
+            wfeatTimerDeviceSynchronize();
             endTime = mach_absolute_time();
         }
 
@@ -210,7 +218,7 @@ namespace wfInternal
         #define MSEC_PER_NSEC (NSEC_PER_SEC / CLOCKS_PER_SEC)
     #endif
 
-    class wfTimer
+    class wfeatTimer
     {
     private:
         long startTime;
@@ -244,13 +252,13 @@ namespace wfInternal
     public:
         void start()
         {
-            wfTimerDeviceSynchronize();
+            wfeatTimerDeviceSynchronize();
             startTime = getTime();
         }
 
         void stop()
         {
-            wfTimerDeviceSynchronize();
+            wfeatTimerDeviceSynchronize();
             endTime = getTime();
         }
 
@@ -260,78 +268,83 @@ namespace wfInternal
         }
     };
 #endif
-} // namespace wfInternal
+} // namespace wfeatInternal
 
-enum wfTimeType
+enum wfeatTimeType
 {
-    Generic,
+    GENERIC,
     GPU,
-    Compute,
-    Copy,
-    wfTimeTypeINVALID // Keep this at the end
+    CPU,
+    TRANSFER,
+    wfeatTimeTypeINVALID // Keep this at the end
 };
 
-namespace wfInternal
+namespace wfeatInternal
 {
-    const char* wfTimeTypeStr[] =
+    const char* wfeatTimeTypeStr[] =
     {
-        "Generic",
-        "GPU    ",
-        "Compute",
-        "Copy   ",
+        "GENERIC ",
+        "GPU ONLY",
+        "CPU ONLY",
+        "TRANSFER",
         "***InvalidTimeType***", // Keep this at the end
     };
 
-    const char* wfTimeTypeToStr(const wfTimeType timeType)
+    const char* wfeatTimeTypeToStr(const wfeatTimeType timeType)
     {
-        return wfTimeTypeStr[timeType];
+        return wfeatTimeTypeStr[timeType];
     }
 
-    struct wfTimerInfo
+    struct wfeatTimerInfo
     {
-        wfTimeType  type;
+        wfeatTimeType  type;
         std::string message;
-        wfTimer     timer;
+        wfeatTimer     timer;
 
-        bool operator==(const wfTimerInfo& t2) const
+        bool operator==(const wfeatTimerInfo& t2) const
         {
             return (type == t2.type && (0 == message.compare(t2.message)));
         }
     };
 
-    typedef std::list<wfTimerInfo> wfTimerInfoList;
+    typedef std::vector<wfeatTimerInfo> wfeatTimerInfoList;
 
-    wfTimerInfoList timerInfoList;
-} // namespace wfInternal
+    wfeatTimerInfoList timerInfoList;
+} // namespace wfeatInternal
 
-void wfTime_start(const wfTimeType timeType, const std::string timeMessage)
+void wfeatTime_start(const wfeatTimeType timeType, const std::string timeMessage)
 {
-    wfAssert(timeType >= Generic && timeType < wfTimeTypeINVALID, "Unrecognized wfTimeType value");
+    wfeatAssert(timeType >= Generic && timeType < wfeatTimeTypeINVALID, "Unrecognized wfeatTimeType value");
 
-    wfInternal::wfTimer timer;
+    wfeatInternal::wfeatTimer timer;
     timer.start();
 
-    wfInternal::wfTimerInfo timerInfo = { timeType, timeMessage, timer };
+    wfeatInternal::wfeatTimerInfo timerInfo = { timeType, timeMessage, timer };
 
-    wfInternal::timerInfoList.push_front(timerInfo);
+    wfeatInternal::timerInfoList.push_back(timerInfo);
+
+    DLOG(INFO) << "Pushing Start Timer Finished. Vector Size: " << wfeatInternal::timerInfoList.size();
+
 }
 
-void wfTime_stop(const wfTimeType timeType, const std::string timeMessage)
+void wfeatTime_stop(const wfeatTimeType timeType, const std::string timeMessage)
 {
-    wfAssert(timeType >= Generic && timeType < wfTimeTypeINVALID, "Unrecognized wfTimeType value");
+    wfeatAssert(timeType >= Generic && timeType < wfeatTimeTypeINVALID, "Unrecognized wfeatTimeType value");
 
-    const wfInternal::wfTimerInfo searchInfo = { timeType, timeMessage, wfInternal::wfTimer() };
-    const wfInternal::wfTimerInfoList::iterator iter = std::find(wfInternal::timerInfoList.begin(), wfInternal::timerInfoList.end(), searchInfo);
+    const wfeatInternal::wfeatTimerInfo searchInfo = { timeType, timeMessage, wfeatInternal::wfeatTimer() };
+    const wfeatInternal::wfeatTimerInfoList::iterator iter = std::find(wfeatInternal::timerInfoList.begin(), wfeatInternal::timerInfoList.end(), searchInfo);
 
-    wfInternal::wfTimerInfo& timerInfo = *iter;
+    wfeatInternal::wfeatTimerInfo& timerInfo = *iter;
 
-    wfAssert(searchInfo == timerInfo, "Could not find a corresponding wfTimerInfo struct registered by wfTime_start()");
+    DLOG(INFO) << "Retrive Start Timer Finished. Vector Size: " << wfeatInternal::timerInfoList.size();
+
+    wfeatAssert(searchInfo == timerInfo, "Could not find a corresponding wfeatTimerInfo struct registered by wfeatTime_start()");
 
     timerInfo.timer.stop();
 
-    std::cout << "[" << wfInternal::wfTimeTypeToStr( timerInfo.type ) << "] ";
+    std::cout << "[" << wfeatInternal::wfeatTimeTypeToStr( timerInfo.type ) << "] ";
     std::cout << std::fixed << std::setprecision(9) << timerInfo.timer.value() << " ";
     std::cout << timerInfo.message << std::endl;
 
-    wfInternal::timerInfoList.erase(iter);
+    wfeatInternal::timerInfoList.erase(iter);
 }
