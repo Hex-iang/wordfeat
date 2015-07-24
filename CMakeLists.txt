@@ -63,7 +63,7 @@ if (CUDA_FOUND)
   # Set wordfeat runtime output directory
   set(wordfeat_RUNTIME_OUTPUT_DIR ${PROJECT_SOURCE_DIR}/build)
 
-  set(EXECUTABLES device_check feature_extract feature_extract_naive)
+  set(EXECUTABLES device_check wordfeat_naive wordfeat)
   foreach (TARGET ${EXECUTABLES})
     CUDA_ADD_EXECUTABLE(
       ${TARGET}

@@ -3,7 +3,8 @@
 
 int main(int argc, char* argv[])
 {
-  GlobalInit(&argc, &argv);
+  FLAGS_alsologtostderr = 1;
+  wordfeat::GlobalInit(&argc, &argv);
 
   int deviceCount = 0;
   cudaGetDeviceCount(& deviceCount);
