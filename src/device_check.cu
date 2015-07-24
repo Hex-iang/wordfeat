@@ -1,23 +1,9 @@
+#include <common.h>
 #include <utils.h>
-
-void Initialization(int &argc, char * argv[])
-{
-  // Google logging
-  ::google::InitGoogleLogging(argv[0]);
-  // Provide a backtrace on failure
-  ::google::InstallFailureSignalHandler();
-
-#ifndef GFLAGS_GFLAGS_H_
-  namespace gflags = google;
-#endif 
-
-  gflags::ParseCommandLineFlags(&argc, &argv, true);
-
-}
 
 int main(int argc, char* argv[])
 {
-  Initialization(argc, argv);
+  GlobalInit(&argc, &argv);
 
   int deviceCount = 0;
   cudaGetDeviceCount(& deviceCount);

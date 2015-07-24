@@ -4,14 +4,21 @@
 
 cmake_minimum_required(VERSION 2.8 FATAL_ERROR)
 
-project(wordfeat)
+project(wordfeat C CXX)
 
+# Include project source directory and project binary directory
+include_directories(${Caffe_INCLUDE_DIR} ${PROJECT_BINARY_DIR})
+
+# Set directory for project headers
+set(WordFeat_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/include)
 # Include directory for project headers
-include_directories(${PROJECT_SOURCE_DIR}/include)
+include_directories(${WordFeat_INCLUDE_DIR})
 
 # Include cmake module
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/Modules)
 
+# Include cmake helpers 
+include(cmake/Targets.cmake)
 
 #
 # Setting for Nvidia CUDA GPU 
@@ -39,6 +46,11 @@ if (CUDA_FOUND)
       endif ()
   endif ()
 
+  # 
+  # Find packages:
+  #   1. GLOG
+  #   2. GFLAGS 
+
   find_package(Glog REQUIRED)
   include_directories(SYSTEM ${GLOG_INCLUDE_DIRS})
   list(APPEND wordfeat_LINK_LIBRARIES ${GLOG_LIBRARIES})
@@ -46,6 +58,10 @@ if (CUDA_FOUND)
   find_package(GFlags REQUIRED)
   include_directories(SYSTEM ${GFLAGS_INCLUDE_DIRS})
   list(APPEND wordfeat_LINK_LIBRARIES ${GFLAGS_LIBRARIES})
+
+  # 
+  # Set wordfeat runtime output directory
+  set(wordfeat_RUNTIME_OUTPUT_DIR ${PROJECT_SOURCE_DIR}/build)
 
   set(EXECUTABLES device_check feature_extract feature_extract_naive)
   foreach (TARGET ${EXECUTABLES})
@@ -68,6 +84,7 @@ if (CUDA_FOUND)
           ${wordfeat_LINK_LIBRARIES}
       )
     endif ()
+    wordfeat_set_runtime_directory(${TARGET} ${wordfeat_RUNTIME_OUTPUT_DIR})
   endforeach ()
 
 # 
