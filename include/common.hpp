@@ -16,6 +16,7 @@
 #include <iostream>
 #include <iomanip>
 #include <list>
+#include <map>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -66,6 +67,8 @@ namespace gflags = google;
     }                                                                          \
   } while (0)
 
+#define DEBUG_HEAD "==============DEBUG============"
+#define DEBUG_TAIL "==============END=============="
 //=====================================================================================================================
 // Namespace
 //
