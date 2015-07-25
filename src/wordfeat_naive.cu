@@ -15,9 +15,9 @@ DEFINE_int32(window, 2,
 
 #define INITIALZATION
 // #define TOKENIZE_PROC
-
+// #define UNROLL_DATA_TO_MAT
 //=======================================================================================
-#define IN_DIMENTION 2
+#define IN_DIM 2
 
 //=======================================================================================
 // Name space 
@@ -42,12 +42,9 @@ __global__ void extract_feat_single(unsigned int * inMat,  int inL,  int inM,
 
 }
 
-int * unroll_data_to_mat(vector<vector<pair<int, int> > >&inData, int L, int M)
+void unroll_data_to_mat(int * &hostMat, vector<vector<pair<int, int> > >&inData, int L, int M, map<int, string>& wordDict)
 {
   // Calculate and allocate host memory 
-  int N = inData.size();
-  int * hostMat = (int *) malloc( N * L * M * sizeof(int) );
-
   for( int i = 0 ; i < inData.size(); i++){
     for ( int j =0 ; j < inData[i].size(); j++ )
     {
@@ -56,7 +53,18 @@ int * unroll_data_to_mat(vector<vector<pair<int, int> > >&inData, int L, int M)
     }
   }
 
-  return hostMat;
+
+#ifdef UNROLL_DATA_TO_MAT
+  // Sanity check for unrolling
+  for( int i = 0 ; i < inData.size(); i++){
+    for ( int j =0 ; j < inData[i].size(); j++ )
+    {
+      LOG(INFO) << wordDict[hostMat[ i * L * M + j * M + 0 ]] << " "
+                << wordDict[hostMat[ i * L * M + j * M + 1 ]];
+    }
+  }
+#endif
+
 }
 
 bool parseInput(ifstream &infile,  vector<vector<pair<int, int> > >&inData, 
@@ -174,15 +182,20 @@ int main(int argc, char * argv[])
   vector<vector< pair<int, int> > > inData;
   map<int, string> wordDict;
   int wordWindow = FLAGS_window;
-  int maxSentLength = 0;
+  int L = 0;
   
   // Parse input file into specified data structure
-  parseInput(infile, inData, wordDict, wordWindow, maxSentLength);
+  parseInput(infile, inData, wordDict, wordWindow, L);
+  
+  // Compute and allocate host memory
+  int N = inData.size(); int M = IN_DIM;
+  int * hostMat = (int *) malloc( N * L * M * sizeof(int) );
 
-  LOG(INFO) << "Maximum sentence length: " << maxSentLength;
+  LOG(INFO) << "Maximum sentence length: " << L;
 
-  int * hostMat = unroll_data_to_mat(inData, maxSentLength, IN_DIMENTION );
-   
+  // Unroll data structure into a N X L X M matrix
+  unroll_data_to_mat(hostMat, inData, L, M, wordDict);
+
   LOG(INFO) << "Finished.";
 
   free(hostMat);
