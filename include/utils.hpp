@@ -211,7 +211,7 @@ void wfeatTime_start(const wfeatTimeType timeType, const std::string timeMessage
 
   wfeatInternal::timerInfoList.push_back(timerInfo);
 
-  DLOG(INFO) << "Pushing Timer Finished. Timer List Size: " << wfeatInternal::timerInfoList.size();
+  // DLOG(INFO) << "Pushing Timer Finished. Timer List Size: " << wfeatInternal::timerInfoList.size();
 
 }
 
@@ -232,7 +232,7 @@ void wfeatTime_stop(const wfeatTimeType timeType, const std::string timeMessage)
             << std::fixed << std::setprecision(9) << timerInfo.timer.value() << " "
             << timerInfo.message << std::endl;
 
-  DLOG(INFO) << "Retrive Timer Finished. Timer List Size: " << wfeatInternal::timerInfoList.size();
+  // DLOG(INFO) << "Retrive Timer Finished. Timer List Size: " << wfeatInternal::timerInfoList.size();
 
   wfeatInternal::timerInfoList.erase(iter);
 }

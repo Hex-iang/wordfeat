@@ -17,7 +17,8 @@ DEFINE_int32(window, 2,
 // #define TOKENIZE_PROC
 // #define UNROLL_DATA_TO_MAT
 //=======================================================================================
-#define IN_DIM 2
+#define IN_DIM    2
+#define FEAT_DIM  23
 
 //=======================================================================================
 // Name space 
@@ -184,21 +185,44 @@ int main(int argc, char * argv[])
   int wordWindow = FLAGS_window;
   int L = 0;
   
+  // Timer start
+  wfeatTime_start(CPU, "Loading input data");
   // Parse input file into specified data structure
   parseInput(infile, inData, wordDict, wordWindow, L);
-  
+  // Timer stop
+  wfeatTime_stop(CPU, "Loading input data");
+
+
   // Compute and allocate host memory
-  int N = inData.size(); int M = IN_DIM;
+  int N = inData.size(); int M = IN_DIM; int F = FEAT_DIM;
   int * hostMat = (int *) malloc( N * L * M * sizeof(int) );
 
   LOG(INFO) << "Maximum sentence length: " << L;
 
+  // Timer start
+  wfeatTime_start(CPU, "Convert input data structure");
   // Unroll data structure into a N X L X M matrix
   unroll_data_to_mat(hostMat, inData, L, M, wordDict);
+  // Timer stop
+  wfeatTime_stop(CPU, "Convert input data structure");
+
+  // Allocate device memory
+  int * deviceInMat = NULL; 
+  int * deviceOutFeat = NULL; 
+  wfeatCheck(cudaMalloc( (void * *) &deviceInMat, N*L*M*sizeof(int) ));
+  wfeatCheck(cudaMalloc( (void * *) &deviceOutFeat, N*L*F*sizeof(int) ));
+
+  // @@ Run Kernel function 
 
   LOG(INFO) << "Finished.";
 
+  // Free host memory
   free(hostMat);
+
+  // Free device memory
+  wfeatCheck(cudaFree(deviceInMat));
+  wfeatCheck(cudaFree(deviceOutFeat));
+
 
   return 0;
 }

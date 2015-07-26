@@ -62,7 +62,7 @@ namespace gflags = google;
     cudaError_t err = stmt;                                                    \
     if (err != cudaSuccess) {                                                  \
       LOG(ERROR) << "Failed to run stmt  " << #stmt;                           \
-      LOG(ERROR) << "Got CUDA error ...  " << cudaGetErrorString(err));        \
+      LOG(ERROR) << "Got CUDA error ...  " << cudaGetErrorString(err);         \
       return -1;                                                               \
     }                                                                          \
   } while (0)
