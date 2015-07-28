@@ -5,10 +5,6 @@
 *.cubin
 *.fatbin
 
-# exclude input files
-*.input
-
-
 # Compiled Object files
 *.slo
 *.lo
@@ -58,3 +54,6 @@ bin
 
 ## Log File
 *.log
+
+## Large Data File
+*.lg.*
