@@ -19,10 +19,12 @@ DEFINE_string(infile, "",
 // #define UNROLL_DATA_TO_MAT
 //=======================================================================================
 #define IN_DIM        2
-#define FEAT_DIM      23
+#define FEAT_DIM      19
 #define FEAT_SIZE     3
 #define WORD_WINDOW   5
 #define WINDOW_RADIUS WORD_WINDOW/2 
+
+#define PAD_NUM       (int) 0
 //=======================================================================================
 // Assume that tile width is static for now
 //  There will be 32 x 32 threads on each block and only 32 x THREAD_WIDTH number of threads 
@@ -79,55 +81,63 @@ __global__ void extract_feat(int * inMat,  int N, int L,
   // Feature extraction code
   if( tx < THREAD_WIDTH && col_out < L && row < N ) 
   {
-    if( cache[ty][tx][0] != -1 && cache[ty][tx][1] != -1)
+    int cx = tx + WINDOW_RADIUS;
+    if( cache[ty][cx - WINDOW_RADIUS][0] != PAD_NUM && cache[ty][cx - WINDOW_RADIUS][1] != PAD_NUM && 
+        cache[ty][cx + WINDOW_RADIUS][0] != PAD_NUM && cache[ty][cx + WINDOW_RADIUS][1] != PAD_NUM )
     {
-      // Feature (U00 - U04) && (U10 - U14) extraction
+      int featIdx = row*L*D*S + col_out*D*S - S;
+
+      // Feature (U00 - U04) extraction
       #pragma unroll
-      for( int i = 0; i < IN_DIM; i++ )
+      for(int i = 0; i < WORD_WINDOW; i++)
       {
-        // For unigram feature such as (U00 - U04) and (U10 - U14)
-        for( int j = 0; j < WORD_WINDOW; j++){
-          int outIdx = row*L*D*S + col_out*D*S + i*(WORD_WINDOW+2)*S + j*S; 
-          outFeat[outIdx + 0] = cache[ty][tx - WINDOW_RADIUS + j][i];
-          // padding the output vector with (U00 - U04) and (U10 - U14)
-          outFeat[outIdx + 1] = -1;
-          outFeat[outIdx + 2] = -1;
-        }
-        
+        featIdx = featIdx + S;
+        outFeat[featIdx + 0] = cache[ty][cx - 1 + i + 0][0];
+        outFeat[featIdx + 1] = PAD_NUM;
+        outFeat[featIdx + 2] = PAD_NUM;
       }
 
+
       // Feature (U05 - U06) extraction
-      int featIdx = row*L*D*S + col_out*D*S + 4*S;
       #pragma unroll
       for(int i = 0; i < 2; i++)
       {
         featIdx = featIdx + S;
-        outFeat[featIdx + 0] = cache[ty][tx - 1 + i + 0][0];
-        outFeat[featIdx + 1] = cache[ty][tx - 1 + i + 1][0];
-        outFeat[featIdx + 2] = -1;
+        outFeat[featIdx + 0] = cache[ty][cx - 1 + i + 0][0];
+        outFeat[featIdx + 1] = cache[ty][cx - 1 + i + 1][0];
+        outFeat[featIdx + 2] = PAD_NUM;
+      }
+
+      // Feature (U10 - U14) extraction
+      #pragma unroll
+      for(int i = 0; i < WORD_WINDOW; i++)
+      {
+        featIdx = featIdx + S;
+        outFeat[featIdx + 0] = cache[ty][cx - 1 + i + 0][1];
+        outFeat[featIdx + 1] = PAD_NUM;
+        outFeat[featIdx + 2] = PAD_NUM;
       }
 
       // Feature (U15 - U18) extraction 
-      featIdx = row*L*D*S + col_out*D*S + 10*S; 
       #pragma unroll
       for(int i = 0; i < 4; i++){
         featIdx = featIdx + S;
-        outFeat[featIdx + 0] = cache[ty][tx - WINDOW_RADIUS + i + 0][1];
-        outFeat[featIdx + 1] = cache[ty][tx - WINDOW_RADIUS + i + 1][1];
-        outFeat[featIdx + 2] = -1;
+        outFeat[featIdx + 0] = cache[ty][cx - WINDOW_RADIUS + i + 0][1];
+        outFeat[featIdx + 1] = cache[ty][cx - WINDOW_RADIUS + i + 1][1];
+        outFeat[featIdx + 2] = PAD_NUM;
       }
       
       // Feature (U20 - U22) extraction
       #pragma unroll
       for(int i = 0; i < 3; i++){
         featIdx = featIdx + S;
-        outFeat[featIdx + 0] = cache[ty][tx - WINDOW_RADIUS + i + 0][1];
-        outFeat[featIdx + 1] = cache[ty][tx - WINDOW_RADIUS + i + 1][1];
-        outFeat[featIdx + 2] = cache[ty][tx - WINDOW_RADIUS + i + 2][1];
+        outFeat[featIdx + 0] = cache[ty][cx - WINDOW_RADIUS + i + 0][1];
+        outFeat[featIdx + 1] = cache[ty][cx - WINDOW_RADIUS + i + 1][1];
+        outFeat[featIdx + 2] = cache[ty][cx - WINDOW_RADIUS + i + 2][1];
       }
-      
     }
   }
+  __syncthreads();
 }
 
 //=======================================================================================
@@ -142,8 +152,8 @@ void unroll_data_to_mat(int * &hostMat, vector<vector<pair<int, int> > >&inData,
       if( j >= inData[i].size() )
       {
         // Padding for sentence 
-        hostMat[ i * L * M + j * M + 0 ] = -1;
-        hostMat[ i * L * M + j * M + 1 ] = -1;
+        hostMat[ i * L * M + j * M + 0 ] = PAD_NUM;
+        hostMat[ i * L * M + j * M + 1 ] = PAD_NUM;
       }else{
         // Assignment value
         hostMat[ i * L * M + j * M + 0 ] = inData[i][j].first;
@@ -151,7 +161,7 @@ void unroll_data_to_mat(int * &hostMat, vector<vector<pair<int, int> > >&inData,
       }
     }
   }
-#define UNROLL_DATA_TO_MAT
+
 #ifdef UNROLL_DATA_TO_MAT
   // Sanity check for unrolling
   for( int i = 0 ; i < inData.size(); i++){
@@ -167,16 +177,18 @@ void unroll_data_to_mat(int * &hostMat, vector<vector<pair<int, int> > >&inData,
 }
 
 bool parseInput(ifstream &infile,  vector<vector<pair<int, int> > >&inData, 
-    map<int, string> &wordDict, int wordRadius, int& maxSentLength)
+    map<int, string> &wordDict, int wordWindow, int& maxSentLength)
 {
   // Here notice that token starts from index = WORD_WINDOW - 1 
   // for case word window = 5, we have: 
-  //    * 0 - <ss>
-  //    * 1 - <s>
-  //    * 2 - </s>
-  //    * 3 - </ss>
-  int tokenNum = wordRadius * 2;
-  int sentNum = 0;
+  //    * 0 - <*>
+  //    * 1 - <ss>
+  //    * 2 - <s>
+  //    * 3 - </s>
+  //    * 4 - </ss>
+  int tokenNum    = wordWindow;
+  int wordRadius  = wordWindow / 2;
+  int sentNum     = 0;
   
   map<string, int> tokenDict;
   string word, tag; 
@@ -204,10 +216,10 @@ bool parseInput(ifstream &infile,  vector<vector<pair<int, int> > >&inData,
 
     if( word == "." && tag == "."){
       // Append place holder token
-      for (int i = 0; i < wordRadius; i++){
+      for (int i = 1; i <= wordRadius; i++){
         inData[sentNum].insert( inData[sentNum].begin(), make_pair(i, i) );
-        inData[sentNum].push_back( make_pair(wordRadius*2-1-i, wordRadius*2-1-i) );
-      }
+        inData[sentNum].push_back( make_pair(wordWindow-i, wordWindow-i) );
+      } 
       // update maximum sentence length
       maxSentLength = (maxSentLength > inData[sentNum].size())? maxSentLength: inData[sentNum].size();
 
@@ -230,13 +242,14 @@ bool parseInput(ifstream &infile,  vector<vector<pair<int, int> > >&inData,
   //--------------------------------------------------------------------------------------------------
   // Put in <ss> <s> </s> <ss> to token dictionary 
   //    as well as sentence padding "<*>"
-  for (int i = 0; i < wordRadius; i++){
+  wordDict[0] = string("<*>");
+  for (int i = 1; i <= wordRadius; i++){
     string pad;
-    for (int j = 0; j <= i; j++) pad += "s";
-    wordDict[i]                   = "<" + pad + ">";
-    wordDict[wordRadius*2 - 1 - i]  = "</" + pad + ">";
+    for (int j = 0; j < i; j++) pad += "s";
+
+    wordDict[i]                 = "<" + pad + ">";
+    wordDict[wordWindow - i]    = "</" + pad + ">";
   }
-  wordDict[-1] = string("<*>");
 
 #ifdef TOKENIZE_PROC
   DLOG(INFO) << DEBUG_HEAD;
@@ -285,13 +298,13 @@ int main(int argc, char * argv[])
   vector<vector< pair<int, int> > > inData;
   map<int, string> wordDict;
   // int wordWindow = FLAGS_window;
-  int wordRadius = WINDOW_RADIUS;
+  int wordWindow = WORD_WINDOW;
   int L = 0;
   
   // Timer start
   wfeatTime_start(CPU, "Loading input data");
   // Parse input file into specified data structure
-  parseInput(infile, inData, wordDict, wordRadius, L);
+  parseInput(infile, inData, wordDict, wordWindow, L);
   // Timer stop
   wfeatTime_stop(CPU, "Loading input data");
 
@@ -316,7 +329,7 @@ int main(int argc, char * argv[])
   // Allocate device memory
   int * deviceInMat = NULL; 
   int * deviceOutFeat = NULL; 
-  wfeatCheck(cudaMalloc( (void **) &deviceInMat, N*L*M*sizeof(int) ));
+  wfeatCheck(cudaMalloc( (void **) &deviceInMat,   N*L*M*sizeof(int) ));
   wfeatCheck(cudaMalloc( (void **) &deviceOutFeat, N*L*D*S*sizeof(int) ));
 
   // Data transfer
@@ -342,26 +355,35 @@ int main(int argc, char * argv[])
   wfeatTime_start(GENERIC, "Transfer Data from GPU to CPU");
   wfeatCheck(cudaMemcpy( hostFeat, deviceOutFeat, N*L*D*S*sizeof(int), cudaMemcpyDeviceToHost));
   wfeatTime_stop(GENERIC, "Transfer Data from GPU to CPU");
-  
+
+#define OUTPUT
+#ifdef OUTPUT
   // Print output feature 
   for(int i = 0; i < N; i++){
     for(int j = 0; j < L; j++){
+      int baseIdx = i*L*D*S + j*D*S;
       for(int k = 0; k < D; k++){
+        int featIdx = baseIdx + k*S;
+
         for(int l = 0; l < S; l++){
-          int idx = i*L*D*S + j*D*S + k*S + l;
-          if(hostFeat[idx] == -1)
-            break;
+          int elementIdx = featIdx + l;
+          // if(hostFeat[elementIdx] == PAD_NUM)
+          //   break;
           
-          if( l == 0) cout << wordDict[hostFeat[idx]];
-          else cout << "/" << wordDict[hostFeat[idx]];
+          if( l == 0) cout << "(" << hostFeat[elementIdx] << "-"<< wordDict[hostFeat[elementIdx]] << ")";
+          else cout << "/" << "(" << hostFeat[elementIdx] << "-"<< wordDict[hostFeat[elementIdx]] << ")";
         }
-        cout << endl;
+
+        // if(hostFeat[featIdx] != PAD_NUM)
+          cout << endl;
       }
       // extra blank line
-      cout << endl;
+      // if(hostFeat[baseIdx] != PAD_NUM)
+        cout << endl;
     } // end of L 
     cout << "============================================================" << endl;
   }
+#endif
 
   // Free host memory
   free(hostMat);
