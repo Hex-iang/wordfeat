@@ -16,13 +16,14 @@ DEFINE_string(infile, "",
 
 #define INITIALZATION
 // #define TOKENIZE_PROC
-// #define UNROLL_DATA_TO_MAT
+#define PRINT_CACHE
+#define UNROLL_DATA_TO_MAT
 //=======================================================================================
 #define IN_DIM        2
 #define FEAT_DIM      19
 #define FEAT_SIZE     3
 #define WORD_WINDOW   5
-#define WINDOW_RADIUS WORD_WINDOW/2 
+#define WINDOW_RADIUS (WORD_WINDOW/2) 
 
 #define PAD_NUM       (int) 0
 //=======================================================================================
@@ -32,7 +33,7 @@ DEFINE_string(infile, "",
 //  keep computation locality
 //  
 #define TILE_WIDTH    32
-#define THREAD_WIDTH  (TILE_WIDTH - 2*WORD_WINDOW)
+#define THREAD_WIDTH  (TILE_WIDTH - 2*WINDOW_RADIUS)
 
 
 //=======================================================================================
@@ -53,7 +54,7 @@ using namespace std;
 //        L: the length in words of a specified sentence
 //        D: the number of dimensions of feature
 //        S: the size of each feature dimension to pre-allocated 
-__global__ void extract_feat(int * inMat,  int N, int L, 
+__global__ void extract_feat(int * inMat,   int N, int L, int M,
                              int * outFeat, int D, int S)
 {
   // Shared memory for a block of threads
@@ -62,28 +63,49 @@ __global__ void extract_feat(int * inMat,  int N, int L,
   
   // Loading shared memory
   int tx = threadIdx.x; int ty = threadIdx.y; 
-  int bx = blockIdx.x; int by = blockIdx.y;
+  int bx = blockIdx.x;  int by = blockIdx.y;
 
   int row         = by * blockDim.y + ty;
-  int col_out     = bx  * THREAD_WIDTH + tx; 
+  int col_out     = bx * THREAD_WIDTH + tx; 
   int col_in      = col_out - WINDOW_RADIUS;
   
   if( row < N && col_in < L && col_in >= 0 )
   {
-    int unroll_in   = row * L + col_in; 
+    int unroll_in   = row * L * M + col_in * M;
+
+#define PRINT_CACHE
+#ifdef PRINT_CACHE  
+    if(bx == 1 && tx == 0 && ty == 0) printf("bx = %d, row = %d, col_in = %d\n", bx, row, col_in);
+#endif
+
     #pragma unroll
-    for( int i = 0; i < IN_DIM; i++) cache[ty][tx][i] = inMat[ unroll_in + i];
+    for( int i = 0; i < IN_DIM; i++) 
+      cache[ty][tx][i] = inMat[ unroll_in + i];
   }
   __syncthreads();
+
+#ifdef PRINT_CACHE
+  if(tx == 0 && ty == 0 )
+  {
+      for( int j = 0; j < TILE_WIDTH; j ++)
+      {
+        for( int k = 0; k < IN_DIM; k ++)
+        {
+          printf("bx = %d, by = %d, cache[0][%d][%d] = %d\n", bx, by, j, k, cache[0][j][k] );
+        }
+      }
+  }
+#endif
 
   // Computation
   //=============================================================================
   // Feature extraction code
   if( tx < THREAD_WIDTH && col_out < L && row < N ) 
   {
+    // Index problem
     int cx = tx + WINDOW_RADIUS;
-    if( cache[ty][cx - WINDOW_RADIUS][0] != PAD_NUM && cache[ty][cx - WINDOW_RADIUS][1] != PAD_NUM && 
-        cache[ty][cx + WINDOW_RADIUS][0] != PAD_NUM && cache[ty][cx + WINDOW_RADIUS][1] != PAD_NUM )
+    if( cache[ty][tx][0] != PAD_NUM                   && cache[ty][tx][1] != PAD_NUM                   && 
+        cache[ty][tx + 2*WINDOW_RADIUS][0] != PAD_NUM && cache[ty][tx + 2*WINDOW_RADIUS][1] != PAD_NUM )
     {
       int featIdx = row*L*D*S + col_out*D*S - S;
 
@@ -96,7 +118,6 @@ __global__ void extract_feat(int * inMat,  int N, int L,
         outFeat[featIdx + 1] = PAD_NUM;
         outFeat[featIdx + 2] = PAD_NUM;
       }
-
 
       // Feature (U05 - U06) extraction
       #pragma unroll
@@ -168,8 +189,8 @@ void unroll_data_to_mat(int * &hostMat, vector<vector<pair<int, int> > >&inData,
   //   for ( int j =0 ; j < inData[i].size(); j++ )
     for ( int j =0 ; j < L; j++ )
     {
-      LOG(INFO) << wordDict[hostMat[ i * L * M + j * M + 0 ]] << " "
-                << wordDict[hostMat[ i * L * M + j * M + 1 ]];
+      LOG(INFO) << "(" << wordDict[hostMat[ i * L * M + j * M + 0 ]] << "," << hostMat[ i * L * M + j * M + 0 ] << ")-("
+                       << wordDict[hostMat[ i * L * M + j * M + 1 ]] << "," << hostMat[ i * L * M + j * M + 1 ] << ")";
     }
   }
 #endif
@@ -182,10 +203,10 @@ bool parseInput(ifstream &infile,  vector<vector<pair<int, int> > >&inData,
   // Here notice that token starts from index = WORD_WINDOW - 1 
   // for case word window = 5, we have: 
   //    * 0 - <*>
-  //    * 1 - <ss>
-  //    * 2 - <s>
-  //    * 3 - </s>
-  //    * 4 - </ss>
+  //    * 1 - _B-2
+  //    * 2 - _B-1
+  //    * 3 - _B+1
+  //    * 4 - _B+2
   int tokenNum    = wordWindow;
   int wordRadius  = wordWindow / 2;
   int sentNum     = 0;
@@ -244,11 +265,8 @@ bool parseInput(ifstream &infile,  vector<vector<pair<int, int> > >&inData,
   //    as well as sentence padding "<*>"
   wordDict[0] = string("<*>");
   for (int i = 1; i <= wordRadius; i++){
-    string pad;
-    for (int j = 0; j < i; j++) pad += "s";
-
-    wordDict[i]                 = "<" + pad + ">";
-    wordDict[wordWindow - i]    = "</" + pad + ">";
+    wordDict[i]                 = "_B-" + SSTR(wordRadius + 1 - i);
+    wordDict[wordWindow - i]    = "_B+" + SSTR(wordRadius + 1 - i);
   }
 
 #ifdef TOKENIZE_PROC
@@ -312,7 +330,7 @@ int main(int argc, char * argv[])
   // Compute and allocate host memory
   int N = inData.size(); int M = IN_DIM; 
   int D = FEAT_DIM; int S = FEAT_SIZE;
-  DLOG(INFO) << "N: " << N << ",M: " << M << ",D: " << D << ",S: " << S;
+  DLOG(INFO) << "N: " << N << ",L: " << L << ",M: " << M << ",D: " << D << ",S: " << S;
 
   // Host memory allocation
   int * hostMat; int * hostFeat;
@@ -331,6 +349,8 @@ int main(int argc, char * argv[])
   int * deviceOutFeat = NULL; 
   wfeatCheck(cudaMalloc( (void **) &deviceInMat,   N*L*M*sizeof(int) ));
   wfeatCheck(cudaMalloc( (void **) &deviceOutFeat, N*L*D*S*sizeof(int) ));
+  
+  wfeatCheck(cudaMemset( deviceOutFeat, 0, N*L*D*S*sizeof(int) ));
 
   // Data transfer
   wfeatTime_start(GENERIC, "Transfer Data from CPU to GPU");
@@ -338,14 +358,17 @@ int main(int argc, char * argv[])
   wfeatTime_stop(GENERIC, "Transfer Data from CPU to GPU");
   
   // Determining Grid and Block size for running kernel
-  dim3 dimGrids( (N - 1) / TILE_WIDTH + 1, (L - 1) / TILE_WIDTH + 1, 1);
+  int gridX = (N - 1) / TILE_WIDTH + 1;
+  int gridY = (L - 1) / TILE_WIDTH + 1;
+  DLOG(INFO) << "gridX = " << gridX << ", gridY = " << gridY;
+  dim3 dimGrids( gridY, gridX, 1);
   dim3 dimBlocks( TILE_WIDTH, TILE_WIDTH, 1 );
 
   LOG(INFO) << "Start GPU computation.";
   wfeatTime_start(GPU, "Kernel Function: extract_feat");
   
   // Run Kernel function 
-  extract_feat<<<dimGrids, dimBlocks>>>(deviceInMat,    L,  M,
+  extract_feat<<<dimGrids, dimBlocks>>>(deviceInMat,    N,  L,  M,
                                         deviceOutFeat,  D,  S);
 
   wfeatTime_stop(GPU, "Kernel Function: extract_feat");
@@ -356,8 +379,7 @@ int main(int argc, char * argv[])
   wfeatCheck(cudaMemcpy( hostFeat, deviceOutFeat, N*L*D*S*sizeof(int), cudaMemcpyDeviceToHost));
   wfeatTime_stop(GENERIC, "Transfer Data from GPU to CPU");
 
-#define OUTPUT
-#ifdef OUTPUT
+#ifdef OUTPUT_DEVICE
   // Print output feature 
   for(int i = 0; i < N; i++){
     for(int j = 0; j < L; j++){

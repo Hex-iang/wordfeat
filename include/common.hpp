@@ -67,6 +67,9 @@ namespace gflags = google;
     }                                                                          \
   } while (0)
 
+#define SSTR( x ) dynamic_cast< std::ostringstream & >( \
+        ( std::ostringstream() << std::dec << x ) ).str()
+
 #define DEBUG_HEAD "==============DEBUG============"
 #define DEBUG_TAIL "==============END=============="
 //=====================================================================================================================
