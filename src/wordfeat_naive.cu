@@ -16,8 +16,10 @@ DEFINE_string(infile, "",
 
 #define INITIALZATION
 // #define TOKENIZE_PROC
-#define PRINT_CACHE
+// #define PRINT_CACHE
 #define UNROLL_DATA_TO_MAT
+#define OUTPUT_DEVICE
+
 //=======================================================================================
 #define IN_DIM        2
 #define FEAT_DIM      19
@@ -73,7 +75,6 @@ __global__ void extract_feat(int * inMat,   int N, int L, int M,
   {
     int unroll_in   = row * L * M + col_in * M;
 
-#define PRINT_CACHE
 #ifdef PRINT_CACHE  
     if(bx == 1 && tx == 0 && ty == 0) printf("bx = %d, row = %d, col_in = %d\n", bx, row, col_in);
 #endif
@@ -107,14 +108,15 @@ __global__ void extract_feat(int * inMat,   int N, int L, int M,
     if( cache[ty][tx][0] != PAD_NUM                   && cache[ty][tx][1] != PAD_NUM                   && 
         cache[ty][tx + 2*WINDOW_RADIUS][0] != PAD_NUM && cache[ty][tx + 2*WINDOW_RADIUS][1] != PAD_NUM )
     {
-      int featIdx = row*L*D*S + col_out*D*S - S;
+      int featIdx = row*L*D*S + col_out*D*S;
 
       // Feature (U00 - U04) extraction
       #pragma unroll
       for(int i = 0; i < WORD_WINDOW; i++)
       {
-        featIdx = featIdx + S;
-        outFeat[featIdx + 0] = cache[ty][cx - 1 + i + 0][0];
+        if( i != 0) featIdx = featIdx + S;
+
+        outFeat[featIdx + 0] = cache[ty][tx + i + 0][0];
         outFeat[featIdx + 1] = PAD_NUM;
         outFeat[featIdx + 2] = PAD_NUM;
       }
@@ -134,7 +136,7 @@ __global__ void extract_feat(int * inMat,   int N, int L, int M,
       for(int i = 0; i < WORD_WINDOW; i++)
       {
         featIdx = featIdx + S;
-        outFeat[featIdx + 0] = cache[ty][cx - 1 + i + 0][1];
+        outFeat[featIdx + 0] = cache[ty][tx + i + 0][1];
         outFeat[featIdx + 1] = PAD_NUM;
         outFeat[featIdx + 2] = PAD_NUM;
       }
@@ -143,8 +145,8 @@ __global__ void extract_feat(int * inMat,   int N, int L, int M,
       #pragma unroll
       for(int i = 0; i < 4; i++){
         featIdx = featIdx + S;
-        outFeat[featIdx + 0] = cache[ty][cx - WINDOW_RADIUS + i + 0][1];
-        outFeat[featIdx + 1] = cache[ty][cx - WINDOW_RADIUS + i + 1][1];
+        outFeat[featIdx + 0] = cache[ty][tx + i + 0][1];
+        outFeat[featIdx + 1] = cache[ty][tx + i + 1][1];
         outFeat[featIdx + 2] = PAD_NUM;
       }
       
@@ -152,9 +154,9 @@ __global__ void extract_feat(int * inMat,   int N, int L, int M,
       #pragma unroll
       for(int i = 0; i < 3; i++){
         featIdx = featIdx + S;
-        outFeat[featIdx + 0] = cache[ty][cx - WINDOW_RADIUS + i + 0][1];
-        outFeat[featIdx + 1] = cache[ty][cx - WINDOW_RADIUS + i + 1][1];
-        outFeat[featIdx + 2] = cache[ty][cx - WINDOW_RADIUS + i + 2][1];
+        outFeat[featIdx + 0] = cache[ty][tx + i + 0][1];
+        outFeat[featIdx + 1] = cache[ty][tx + i + 1][1];
+        outFeat[featIdx + 2] = cache[ty][tx + i + 2][1];
       }
     }
   }
@@ -225,6 +227,7 @@ bool parseInput(ifstream &infile,  vector<vector<pair<int, int> > >&inData,
 #ifdef TOKENIZE_PROC
       DLOG(INFO) << "Tokenize word \"" << word << "\" as " << tokenDict[word];
 #endif
+
     }
 
     if ( tokenDict.find(tag) == tokenDict.end() ){
@@ -233,8 +236,11 @@ bool parseInput(ifstream &infile,  vector<vector<pair<int, int> > >&inData,
 #ifdef TOKENIZE_PROC
       DLOG(INFO) << "Tokenize tag \"" << tag << "\" as " << tokenDict[tag];
 #endif
+
     }
 
+    //------------------------------------------------------------------------------------
+    // At the end of the a sentence, insert place holder tokens
     if( word == "." && tag == "."){
       // Append place holder token
       for (int i = 1; i <= wordRadius; i++){
@@ -265,8 +271,8 @@ bool parseInput(ifstream &infile,  vector<vector<pair<int, int> > >&inData,
   //    as well as sentence padding "<*>"
   wordDict[0] = string("<*>");
   for (int i = 1; i <= wordRadius; i++){
-    wordDict[i]                 = "_B-" + SSTR(wordRadius + 1 - i);
-    wordDict[wordWindow - i]    = "_B+" + SSTR(wordRadius + 1 - i);
+    wordDict[i]                 = "_B-" + SSTR(i);
+    wordDict[wordWindow - i]    = "_B+" + SSTR(i);
   }
 
 #ifdef TOKENIZE_PROC
