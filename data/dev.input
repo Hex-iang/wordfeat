@@ -1,66 +1,66 @@
-Confidence NN B-NP
-in IN B-PP
-the DT B-NP
-pound NN I-NP
-is VBZ B-VP
-widely RB I-VP
-expected VBN I-VP
-to TO I-VP
-take VB I-VP
-another DT B-NP
-sharp JJ I-NP
-dive NN I-NP
-if IN B-SBAR
-trade NN B-NP
-figures NNS I-NP
-for IN B-PP
-September NNP B-NP
-, , O
-due JJ B-ADJP
-for IN B-PP
-release NN B-NP
-tomorrow NN B-NP
-, , O
-fail VB B-VP
-to TO I-VP
-show VB I-VP
-a DT B-NP
-substantial JJ I-NP
-improvement NN I-NP
-from IN B-PP
-July NNP B-NP
-and CC I-NP
-August NNP I-NP
-'s POS B-NP
-near-record JJ I-NP
-deficits NNS I-NP
-. . O
+Confidence NN
+in IN
+the DT
+pound NN
+is VBZ
+widely RB
+expected VBN
+to TO
+take VB
+another DT
+sharp JJ
+dive NN
+if IN
+trade NN
+figures NNS
+for IN
+September NNP
+, ,
+due JJ
+for IN
+release NN
+tomorrow NN
+, ,
+fail VB
+to TO
+show VB
+a DT
+substantial JJ
+improvement NN
+from IN
+July NNP
+and CC
+August NNP
+'s POS
+near-record JJ
+deficits NNS
+. .
 
-Chancellor NNP O
-of IN B-PP
-the DT B-NP
-Exchequer NNP I-NP
-Nigel NNP B-NP
-Lawson NNP I-NP
-'s POS B-NP
-restated VBN I-NP
-commitment NN I-NP
-to TO B-PP
-a DT B-NP
-firm NN I-NP
-monetary JJ I-NP
-policy NN I-NP
-has VBZ B-VP
-helped VBN I-VP
-to TO I-VP
-prevent VB I-VP
-a DT B-NP
-freefall NN I-NP
-in IN B-PP
-sterling NN B-NP
-over IN B-PP
-the DT B-NP
-past JJ I-NP
-week NN I-NP
-. . O
+Chancellor NNP
+of IN
+the DT
+Exchequer NNP
+Nigel NNP
+Lawson NNP
+'s POS
+restated VBN
+commitment NN
+to TO
+a DT
+firm NN
+monetary JJ
+policy NN
+has VBZ
+helped VBN
+to TO
+prevent VB
+a DT
+freefall NN
+in IN
+sterling NN
+over IN
+the DT
+past JJ
+week NN
+. .
 
