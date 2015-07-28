@@ -70,8 +70,9 @@ __global__ void extract_feat(int * inMat,   int N, int L, int M,
   int row         = by * blockDim.y + ty;
   int col_out     = bx * THREAD_WIDTH + tx; 
   int col_in      = col_out - WINDOW_RADIUS;
+  int tx_in       = tx - WINDOW_RADIUS;
   
-  if( row < N && col_in < L && col_in >= 0 )
+  if( row < N && col_in < L && col_in >= 0 && tx_in >= 0 )
   {
     int unroll_in   = row * L * M + col_in * M;
 
@@ -81,7 +82,7 @@ __global__ void extract_feat(int * inMat,   int N, int L, int M,
 
     #pragma unroll
     for( int i = 0; i < IN_DIM; i++) 
-      cache[ty][tx][i] = inMat[ unroll_in + i];
+      cache[ty][tx_in][i] = inMat[ unroll_in + i];
   }
   __syncthreads();
 
@@ -385,7 +386,10 @@ int main(int argc, char * argv[])
   wfeatCheck(cudaMemcpy( hostFeat, deviceOutFeat, N*L*D*S*sizeof(int), cudaMemcpyDeviceToHost));
   wfeatTime_stop(GENERIC, "Transfer Data from GPU to CPU");
 
+
 #ifdef OUTPUT_DEVICE
+  wfeatTime_start(CPU, "Output Data to stdout");
+  
   // Print output feature 
   for(int i = 0; i < N; i++){
     for(int j = 0; j < L; j++){
@@ -395,11 +399,14 @@ int main(int argc, char * argv[])
 
         for(int l = 0; l < S; l++){
           int elementIdx = featIdx + l;
-          // if(hostFeat[elementIdx] == PAD_NUM)
-          //   break;
+          if(hostFeat[elementIdx] == PAD_NUM)
+             break;
           
-          if( l == 0) cout << "(" << hostFeat[elementIdx] << "-"<< wordDict[hostFeat[elementIdx]] << ")";
-          else cout << "/" << "(" << hostFeat[elementIdx] << "-"<< wordDict[hostFeat[elementIdx]] << ")";
+//          if( l == 0) cout << "(" << hostFeat[elementIdx] << "-"<< wordDict[hostFeat[elementIdx]] << ")";
+//          else cout << "/" << "(" << hostFeat[elementIdx] << "-"<< wordDict[hostFeat[elementIdx]] << ")";
+          
+          if( l == 0) cout << wordDict[hostFeat[elementIdx]];
+          else cout << "/" << wordDict[hostFeat[elementIdx]];
         }
 
         // if(hostFeat[featIdx] != PAD_NUM)
@@ -411,6 +418,8 @@ int main(int argc, char * argv[])
     } // end of L 
     cout << "============================================================" << endl;
   }
+  
+  wfeatTime_stop(CPU, "Output Data to stdout");
 #endif
 
   // Free host memory
