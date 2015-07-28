@@ -17,7 +17,7 @@ DEFINE_string(infile, "",
 #define INITIALZATION
 // #define TOKENIZE_PROC
 // #define PRINT_CACHE
-#define UNROLL_DATA_TO_MAT
+// #define UNROLL_DATA_TO_MAT
 #define OUTPUT_DEVICE
 
 //=======================================================================================
@@ -389,7 +389,12 @@ int main(int argc, char * argv[])
 
 #ifdef OUTPUT_DEVICE
   wfeatTime_start(CPU, "Output Data to stdout");
-  
+  int featSet[] = {
+    0,  1,  2,  3,  4,  5,  6,
+    10, 11, 12, 13, 14, 15, 16,
+    17, 18, 20, 21, 22
+  };
+
   // Print output feature 
   for(int i = 0; i < N; i++){
     for(int j = 0; j < L; j++){
@@ -402,20 +407,19 @@ int main(int argc, char * argv[])
           if(hostFeat[elementIdx] == PAD_NUM)
              break;
           
-//          if( l == 0) cout << "(" << hostFeat[elementIdx] << "-"<< wordDict[hostFeat[elementIdx]] << ")";
-//          else cout << "/" << "(" << hostFeat[elementIdx] << "-"<< wordDict[hostFeat[elementIdx]] << ")";
-          
-          if( l == 0) cout << wordDict[hostFeat[elementIdx]];
-          else cout << "/" << wordDict[hostFeat[elementIdx]];
+          if( l == 0 ){ 
+            cout << "FEAT U" << setfill('0') << setw(2) 
+                 << featSet[k] << ": " << wordDict[hostFeat[elementIdx]];
+          }
+          else{ 
+            cout << "/" << wordDict[hostFeat[elementIdx]];
+          }
         }
-
-        // if(hostFeat[featIdx] != PAD_NUM)
-          cout << endl;
-      }
-      // extra blank line
-      // if(hostFeat[baseIdx] != PAD_NUM)
         cout << endl;
+      }
+      cout << "FEAT B"<< endl;
     } // end of L 
+    // Output a separator at the end of sentence
     cout << "============================================================" << endl;
   }
   
