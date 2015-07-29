@@ -18,7 +18,7 @@ DEFINE_string(infile, "",
 // #define TOKENIZE_PROC
 // #define PRINT_CACHE
 // #define UNROLL_DATA_TO_MAT
-#define PRINT_DEVICE_OUTPUT 
+// #define OUTPUT_FEATS_TO_CONSOLE 
 
 //=======================================================================================
 #define IN_DIM        2
@@ -196,6 +196,9 @@ void unroll_data_to_mat(int * &hostMat, vector<vector<pair<int, int> > >&inData,
 
 }
 
+//=======================================================================================
+// parseInput function: read input file and output a vector for storing input 
+//---------------------------------------------------------------------------------------
 bool parseInput(ifstream &infile,  vector<vector<pair<int, int> > >&inData, 
     map<int, string> &wordDict, int wordWindow, int& maxSentLength)
 {
@@ -292,6 +295,117 @@ bool parseInput(ifstream &infile,  vector<vector<pair<int, int> > >&inData,
 
 }
 
+//=======================================================================================
+// outputData function: output data to stdout 
+//---------------------------------------------------------------------------------------
+void outputData(map<int, string>& wordDict, int * hostFeat, 
+                int N, int L, int D, int S)
+{
+  static int featSet[] = {
+    0,  1,  2,  3,  4,  5,  6,
+    10, 11, 12, 13, 14, 15, 16,
+    17, 18, 20, 21, 22
+  };
+
+  {
+    // Print output feature into output file 
+    for(int i = 0; i < N; i++){
+      for(int j = 0; j < L; j++){
+        // Base index for feature in current sentence
+        int baseIdx = i*L*D*S + j*D*S;
+
+        for(int k = 0; k < D; k++){
+          // Feature index for feature dimension
+          int featIdx = baseIdx + k*S;
+        
+          // Print out all dimensions of feature 
+          for(int l = 0; l < S; l++){
+            // Element index for the elements in a single dimension of feature 
+            int elementIdx = featIdx + l;
+            // Escape PADDING
+            if(hostFeat[elementIdx] == PAD_NUM) break;
+          
+            if( l == 0 )
+            { 
+              // For first dimension of feature, output prefix
+              cout << "FEAT U" << setfill('0') << setw(2) 
+                      << featSet[k] << ":" << wordDict[hostFeat[elementIdx]];
+            }else{ 
+              // Fot the rest dimension of feature, output separator in features
+              cout << "/" << wordDict[hostFeat[elementIdx]];
+            }
+          } 
+          // Escape PADDING
+          if(hostFeat[featIdx] != PAD_NUM) cout << endl;
+        } // end of D loop
+
+        // Escape PADDING
+        if(hostFeat[baseIdx] != PAD_NUM)   cout << "FEAT B"<< endl;
+      } // end of L loop
+      // Output a separator at the end of sentence
+      cout << endl;
+    }
+  }
+}
+
+//=======================================================================================
+// outputData function: output data to file 
+//---------------------------------------------------------------------------------------
+void outputData(map<int, string>& wordDict, int * hostFeat, 
+                int N, int L, int D, int S, string& filename)
+{
+  static int featSet[] = {
+    0,  1,  2,  3,  4,  5,  6,
+    10, 11, 12, 13, 14, 15, 16,
+    17, 18, 20, 21, 22
+  };
+
+  ofstream outFile; 
+  outFile.open(filename.c_str());
+
+  // Write to outFile if it is open
+  if( outFile.is_open() )
+  {
+    // Print output feature into output file 
+    for(int i = 0; i < N; i++){
+      for(int j = 0; j < L; j++){
+        // Base index for feature in current sentence
+        int baseIdx = i*L*D*S + j*D*S;
+
+        for(int k = 0; k < D; k++){
+          // Feature index for feature dimension
+          int featIdx = baseIdx + k*S;
+        
+          // Print out all dimensions of feature 
+          for(int l = 0; l < S; l++){
+            // Element index for the elements in a single dimension of feature 
+            int elementIdx = featIdx + l;
+            // Escape PADDING
+            if(hostFeat[elementIdx] == PAD_NUM) break;
+          
+            if( l == 0 )
+            { 
+              // For first dimension of feature, output prefix
+              outFile << "FEAT U" << setfill('0') << setw(2) 
+                      << featSet[k] << ":" << wordDict[hostFeat[elementIdx]];
+            }else{ 
+              // Fot the rest dimension of feature, output separator in features
+              outFile << "/" << wordDict[hostFeat[elementIdx]];
+            }
+          } 
+          // Escape PADDING
+          if(hostFeat[featIdx] != PAD_NUM) outFile << endl;
+        } // end of D loop
+
+        // Escape PADDING
+        if(hostFeat[baseIdx] != PAD_NUM)   outFile << "FEAT B"<< endl;
+      } // end of L loop
+      // Output a separator at the end of sentence
+      outFile << endl;
+    }
+  }
+}
+
 int main(int argc, char * argv[])
 {
   // Setup usage flags
@@ -303,16 +417,13 @@ int main(int argc, char * argv[])
   GlobalInit(&argc, &argv);
 
 #ifdef INITIALIZATION
-  DLOG(INFO) << DEBUG_HEAD; 
-  DLOG(INFO) << "IN_FILE:     " << FLAGS_infile;
-  DLOG(INFO) << "OUT_FILE:    " << FLAGS_outfile;
-  // DLOG(INFO) << "WORD_WINDOW: " << FLAGS_window;
-  DLOG(INFO) << DEBUG_TAIL;
+  DLOG(WARNING) << "DEBUG INFORMATION"; 
+  DLOG(WARNING) << "IN_FILE:     " << FLAGS_infile;
+  DLOG(WARNING) << "OUT_FILE:    " << FLAGS_outfile;
 #endif
 
   // Input error
-  if( FLAGS_infile == "" || FLAGS_outfile == "")
-    return 1;
+  wfeatAssert( (FLAGS_infile != "" && FLAGS_outfile != ""), "There is non-specified input/output file");
   
   // To read from input file 
   ifstream infile( FLAGS_infile.c_str() );
@@ -335,14 +446,23 @@ int main(int argc, char * argv[])
   // Compute and allocate host memory
   int N = inData.size(); int M = IN_DIM; 
   int D = FEAT_DIM; int S = FEAT_SIZE;
-  DLOG(INFO) << "N: " << N << ",L: " << L << ",M: " << M << ",D: " << D << ",S: " << S;
 
   // Host memory allocation
   int * hostMat; int * hostFeat;
-  hostMat = (int *) malloc( N*L*M*sizeof(int) );
-  hostFeat = (int *) malloc( N*L*D*S*sizeof(int) );
+  int inMatSize   = N*L*M*sizeof(int);
+  int outFeatSize = N*L*D*S*sizeof(int); 
+  
+  // Memory utility information
+  LOG(INFO) << "[ Data Structure Dimension and Memory Utility Status ]"; 
+  LOG(INFO) << "inMat dims:    " << N << " x " << L << " x " << M;
+  LOG(INFO) << "inMat size:    " << inMatSize << " bytes.";
+  LOG(INFO) << "outFeat dims:  " << N << " x " << L << " x " << D << " x " << S;
+  LOG(INFO) << "outFeat size:  " << outFeatSize << " bytes.";
 
-  LOG(INFO) << "Maximum sentence length: " << L;
+  wfeatTime_start(CPU, "Allocate host memory...");
+  hostMat = (int *) malloc( inMatSize );
+  hostFeat = (int *) malloc( outFeatSize );
+  wfeatTime_stop(CPU, "Allocate host memory...");
 
   // Unroll data structure into a N X L X M matrix
   wfeatTime_start(CPU, "Unrolling input data structure");
@@ -352,10 +472,14 @@ int main(int argc, char * argv[])
   // Allocate device memory
   int * deviceInMat = NULL; 
   int * deviceOutFeat = NULL; 
-  wfeatCheck(cudaMalloc( (void **) &deviceInMat,   N*L*M*sizeof(int) ));
-  wfeatCheck(cudaMalloc( (void **) &deviceOutFeat, N*L*D*S*sizeof(int) ));
-  
+
+  wfeatTime_start(CPU, "Allocate device memory...");
+  // Allocate memory
+  wfeatCheck(cudaMalloc( (void **) &deviceInMat,   inMatSize ));
+  wfeatCheck(cudaMalloc( (void **) &deviceOutFeat, outFeatSize ));
+  // Set up initial value for output 
   wfeatCheck(cudaMemset( deviceOutFeat, 0, N*L*D*S*sizeof(int) ));
+  wfeatTime_stop(CPU, "Allocate device memory...");
 
   // Data transfer
   wfeatTime_start(GENERIC, "Transfer Data from CPU to GPU");
@@ -365,67 +489,41 @@ int main(int argc, char * argv[])
   // Determining Grid and Block size for running kernel
   int gridX = (N - 1) / TILE_WIDTH + 1;
   int gridY = (L - 1) / TILE_WIDTH + 1;
-  DLOG(INFO) << "gridX = " << gridX << ", gridY = " << gridY;
+  
   dim3 dimGrids( gridY, gridX, 1);
-  dim3 dimBlocks( TILE_WIDTH, TILE_WIDTH, 1 );
+  dim3 dimBlocks( TILE_WIDTH, TILE_WIDTH, 1);
 
-  LOG(INFO) << "Start GPU computation.";
+  DLOG(INFO) << "[ Grid and Block status ]";
+  DLOG(INFO) << "dimGrids.x  = " << dimGrids.x  << ", dimGrids.y  = " << dimGrids.y;
+  DLOG(INFO) << "dimBlocks.x = " << dimBlocks.x << ", dimBlocks.y = " << dimBlocks.y;
+
+  // Run Kernel function 
+  LOG(INFO) << "[ Start GPU computation ]";
   wfeatTime_start(GPU, "Kernel Function: extract_feat");
   
-  // Run Kernel function 
   extract_feat<<<dimGrids, dimBlocks>>>(deviceInMat,    N,  L,  M,
                                         deviceOutFeat,  D,  S);
 
   wfeatTime_stop(GPU, "Kernel Function: extract_feat");
-  LOG(INFO) << "Finished.";
+  LOG(INFO) << "[ Finished. ]";
 
   // Data transfer back
   wfeatTime_start(GENERIC, "Transfer Data from GPU to CPU");
   wfeatCheck(cudaMemcpy( hostFeat, deviceOutFeat, N*L*D*S*sizeof(int), cudaMemcpyDeviceToHost));
   wfeatTime_stop(GENERIC, "Transfer Data from GPU to CPU");
 
-
-#ifdef PRINT_DEVICE_OUTPUT
   // Nasty print for output structure from device
-  wfeatTime_start(CPU, "Output Data to stdout");
-  int featSet[] = {
-    0,  1,  2,  3,  4,  5,  6,
-    10, 11, 12, 13, 14, 15, 16,
-    17, 18, 20, 21, 22
-  };
+  wfeatTime_start(CPU, "Output Data.");
 
-  // Print output feature 
-  for(int i = 0; i < N; i++){
-    for(int j = 0; j < L; j++){
-      int baseIdx = i*L*D*S + j*D*S;
-      for(int k = 0; k < D; k++){
-        int featIdx = baseIdx + k*S;
-        
-        // Print out all dimensions of feature 
-        for(int l = 0; l < S; l++){
-          int elementIdx = featIdx + l;
-          if(hostFeat[elementIdx] == PAD_NUM)
-             break;
-          
-          if( l == 0 ){ 
-            cout << "FEAT U" << setfill('0') << setw(2) 
-                 << featSet[k] << ":" << wordDict[hostFeat[elementIdx]];
-          }else{ 
-            cout << "/" << wordDict[hostFeat[elementIdx]];
-          }
-        } 
-
-        if(hostFeat[featIdx] != PAD_NUM) cout << endl;
-      } // end of D loop
-      if(hostFeat[baseIdx] != PAD_NUM)   cout << "FEAT B"<< endl;
-    } // end of L loop
-    // Output a separator at the end of sentence
-    cout << endl;
-  }
-  
-  wfeatTime_stop(CPU, "Output Data to stdout");
+#ifdef OUTPUT_FEATS_TO_CONSOLE 
+  outputData(wordDict, hostFeat, N, L, D, S);
+#else
+  outputData(wordDict, hostFeat, N, L, D, S, FLAGS_outfile);
 #endif
 
+  wfeatTime_stop(CPU, "Output Data."); 
+
+  
   // Free host memory
   free(hostMat);
   free(hostFeat);
@@ -433,7 +531,6 @@ int main(int argc, char * argv[])
   // Free device memory
   wfeatCheck(cudaFree(deviceInMat));
   wfeatCheck(cudaFree(deviceOutFeat));
-
 
   return 0;
 }

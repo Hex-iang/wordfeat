@@ -70,8 +70,9 @@ namespace gflags = google;
 #define SSTR( x ) dynamic_cast< std::ostringstream & >( \
         ( std::ostringstream() << std::dec << x ) ).str()
 
-#define DEBUG_HEAD "==============DEBUG============"
-#define DEBUG_TAIL "==============END=============="
+#define SEP_OP "--------------------"
+
+#define INFOSEP(A) std::string(SEP_OP + std::string(A) + SEP_OP)
 //=====================================================================================================================
 // Namespace
 //
