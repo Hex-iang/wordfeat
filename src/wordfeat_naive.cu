@@ -82,13 +82,16 @@ __global__ void extract_feat(int * inMat,   int N, int L, int M,
 #ifdef PRINT_CACHE
   if( tx == 0 && ty == 0 )
   {
-      for( int j = 0; j < TILE_WIDTH; j ++)
+    // Specify a row in cache to print
+    int c_row = 0; 
+    for( int j = 0; j < TILE_WIDTH; j ++)
+    {
+      for( int k = 0; k < IN_DIM; k ++)        
       {
-        for( int k = 0; k < IN_DIM; k ++)
-        {
-          printf("bx = %d, by = %d, cache[0][%d][%d] = %d\n", bx, by, j, k, cache[0][j][k] );
-        }
+        printf("bx = %d, by = %d, cache[%d][%d][%d] = %d\n", 
+                    bx, by, c_row, j, k, cache[c_row][j][k] );
       }
+    }
   }
 #endif
 
@@ -383,6 +386,7 @@ int main(int argc, char * argv[])
 
 
 #ifdef PRINT_DEVICE_OUTPUT
+  // Nasty print for output structure from device
   wfeatTime_start(CPU, "Output Data to stdout");
   int featSet[] = {
     0,  1,  2,  3,  4,  5,  6,
@@ -396,7 +400,8 @@ int main(int argc, char * argv[])
       int baseIdx = i*L*D*S + j*D*S;
       for(int k = 0; k < D; k++){
         int featIdx = baseIdx + k*S;
-
+        
+        // Print out all dimensions of feature 
         for(int l = 0; l < S; l++){
           int elementIdx = featIdx + l;
           if(hostFeat[elementIdx] == PAD_NUM)
@@ -405,17 +410,15 @@ int main(int argc, char * argv[])
           if( l == 0 ){ 
             cout << "FEAT U" << setfill('0') << setw(2) 
                  << featSet[k] << ":" << wordDict[hostFeat[elementIdx]];
-          }
-          else{ 
+          }else{ 
             cout << "/" << wordDict[hostFeat[elementIdx]];
           }
-        }
-        if(hostFeat[featIdx] != PAD_NUM) 
-          cout << endl;
-      }
-      if(hostFeat[baseIdx] != PAD_NUM) 
-        cout << "FEAT B"<< endl;
-    } // end of L 
+        } 
+
+        if(hostFeat[featIdx] != PAD_NUM) cout << endl;
+      } // end of D loop
+      if(hostFeat[baseIdx] != PAD_NUM)   cout << "FEAT B"<< endl;
+    } // end of L loop
     // Output a separator at the end of sentence
     cout << endl;
   }
