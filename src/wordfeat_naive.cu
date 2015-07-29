@@ -18,7 +18,7 @@ DEFINE_string(infile, "",
 // #define TOKENIZE_PROC
 // #define PRINT_CACHE
 // #define UNROLL_DATA_TO_MAT
-#define OUTPUT_DEVICE
+#define PRINT_DEVICE_OUTPUT 
 
 //=======================================================================================
 #define IN_DIM        2
@@ -70,24 +70,17 @@ __global__ void extract_feat(int * inMat,   int N, int L, int M,
   int row         = by * blockDim.y + ty;
   int col_out     = bx * THREAD_WIDTH + tx; 
   int col_in      = col_out - WINDOW_RADIUS;
-  int tx_in       = tx - WINDOW_RADIUS;
   
-  if( row < N && col_in < L && col_in >= 0 && tx_in >= 0 )
+  if( row < N && col_in < L && col_in >= 0 )
   {
     int unroll_in   = row * L * M + col_in * M;
-
-#ifdef PRINT_CACHE  
-    if(bx == 1 && tx == 0 && ty == 0) printf("bx = %d, row = %d, col_in = %d\n", bx, row, col_in);
-#endif
-
     #pragma unroll
-    for( int i = 0; i < IN_DIM; i++) 
-      cache[ty][tx_in][i] = inMat[ unroll_in + i];
+    for( int i = 0; i < IN_DIM; i++) cache[ty][tx][i] = inMat[ unroll_in + i];
   }
   __syncthreads();
 
 #ifdef PRINT_CACHE
-  if(tx == 0 && ty == 0 )
+  if( tx == 0 && ty == 0 )
   {
       for( int j = 0; j < TILE_WIDTH; j ++)
       {
@@ -239,7 +232,10 @@ bool parseInput(ifstream &infile,  vector<vector<pair<int, int> > >&inData,
 #endif
 
     }
-
+    
+    // Put in the word and its tag
+    inData[sentNum].push_back( make_pair(tokenDict[word], tokenDict[tag]) );
+    
     //------------------------------------------------------------------------------------
     // At the end of the a sentence, insert place holder tokens
     if( word == "." && tag == "."){
@@ -255,7 +251,6 @@ bool parseInput(ifstream &infile,  vector<vector<pair<int, int> > >&inData,
       sentNum ++;
     }
 
-    inData[sentNum].push_back( make_pair(tokenDict[word], tokenDict[tag]) );
   }
   inData.pop_back();
 
@@ -387,7 +382,7 @@ int main(int argc, char * argv[])
   wfeatTime_stop(GENERIC, "Transfer Data from GPU to CPU");
 
 
-#ifdef OUTPUT_DEVICE
+#ifdef PRINT_DEVICE_OUTPUT
   wfeatTime_start(CPU, "Output Data to stdout");
   int featSet[] = {
     0,  1,  2,  3,  4,  5,  6,
@@ -409,18 +404,20 @@ int main(int argc, char * argv[])
           
           if( l == 0 ){ 
             cout << "FEAT U" << setfill('0') << setw(2) 
-                 << featSet[k] << ": " << wordDict[hostFeat[elementIdx]];
+                 << featSet[k] << ":" << wordDict[hostFeat[elementIdx]];
           }
           else{ 
             cout << "/" << wordDict[hostFeat[elementIdx]];
           }
         }
-        cout << endl;
+        if(hostFeat[featIdx] != PAD_NUM) 
+          cout << endl;
       }
-      cout << "FEAT B"<< endl;
+      if(hostFeat[baseIdx] != PAD_NUM) 
+        cout << "FEAT B"<< endl;
     } // end of L 
     // Output a separator at the end of sentence
-    cout << "============================================================" << endl;
+    cout << endl;
   }
   
   wfeatTime_stop(CPU, "Output Data to stdout");
