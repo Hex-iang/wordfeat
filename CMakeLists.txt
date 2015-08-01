@@ -6,8 +6,11 @@ cmake_minimum_required(VERSION 2.8 FATAL_ERROR)
 
 project(wordfeat C CXX)
 
+set(Wordfeat_VERSION_MAJOR 0)
+set(Wordfeat_VERSION_MAJOR 1)
+
 # if(UNIX)
-#     SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -std=gnu++0x")
+#     SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -std=c++11")
 # endif()
 
 # Include project source directory and project binary directory
@@ -17,6 +20,13 @@ include_directories(${Caffe_INCLUDE_DIR} ${PROJECT_BINARY_DIR})
 set(WordFeat_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/include)
 # Include directory for project headers
 include_directories(${WordFeat_INCLUDE_DIR})
+
+# Set library to link
+set(WordFeat_SOURCE_DIR ${PROJECT_SOURCE_DIR}/src)
+
+include_directories(${WordFeat_LIB_DIR})
+
+add_subdirectory(src)
 
 # Include cmake module
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/Modules)
@@ -67,11 +77,13 @@ if (CUDA_FOUND)
   # Set wordfeat runtime output directory
   set(wordfeat_RUNTIME_OUTPUT_DIR ${PROJECT_SOURCE_DIR}/build)
 
+  # 
+  # Compile executables for GPU program 
   set(EXECUTABLES device_check wordfeat_naive wordfeat)
   foreach (TARGET ${EXECUTABLES})
     CUDA_ADD_EXECUTABLE(
       ${TARGET}
-      ${PROJECT_SOURCE_DIR}/src/${TARGET}.cu
+      ${PROJECT_SOURCE_DIR}/tools/${TARGET}.cu
       OPTIONS ${wordfeat_NVCC_OPTIONS}
     )
     if (DEFINED wordfeat_STANDARD_LIBRARY)
@@ -88,6 +100,10 @@ if (CUDA_FOUND)
           ${wordfeat_LINK_LIBRARIES}
       )
     endif ()
+
+    # Link source object file 
+    target_link_libraries(${TARGET} wordfeat_lib)
+
     wordfeat_set_runtime_directory(${TARGET} ${wordfeat_RUNTIME_OUTPUT_DIR})
   endforeach ()
 

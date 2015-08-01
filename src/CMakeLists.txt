@@ -1,0 +1,1 @@
+add_library(wordfeat_lib STATIC common.cpp utils/io.cpp)

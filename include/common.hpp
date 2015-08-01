@@ -1,6 +1,12 @@
 #pragma once
 
 //=====================================================================================================================
+// Version number to include  
+//
+#define Wordfeat_VERSION_MAJOR @Wordfeat_VERSION_MAJOR@
+#define Wordfeat_VERSION_MINOR @Wordfeat_VERSION_MINOR@
+
+//=====================================================================================================================
 // Headers to include 
 //
 
@@ -73,82 +79,31 @@ namespace gflags = google;
 #define SEP_OP "--------------------"
 
 #define INFOSEP(A) std::string(SEP_OP + std::string(A) + SEP_OP)
+
+//---------------------------------------------------------------------------------------------------------------------
+// Program Specified Macros
+// 
+
+#define IN_DIM        2
+#define FEAT_DIM      19
+#define FEAT_SIZE     3
+#define WORD_WINDOW   5
+#define WINDOW_RADIUS (WORD_WINDOW/2) 
+
+#define PAD_NUM       (int) 0
+
 //=====================================================================================================================
 // Namespace
 //
 
-namespace wfeatInternal 
-{
+namespace wordfeat{
+//
 // String Error Output
-#if defined(_WIN32)
-  std::string wfeatStrerror(int errnum)
-  {
-    std::string str;
-    char buffer[1024];
+  std::string wfeatStrerror(int errnum);
 
-    if (errnum)
-    {
-      (void) strerror_s(buffer, sizeof(buffer), errnum);
-      str = buffer;
-    }
-
-    return str;
-  }
-#elif (_POSIX_C_SOURCE >= 200112L || _XOPEN_SOURCE >= 600 || __APPLE__) && ! _GNU_SOURCE
-  std::string wfeatStrerror(int errnum)
-  {
-    std::string str;
-    char buffer[1024];
-
-    if (errnum)
-    {
-      (void) strerror_r(errnum, buffer, sizeof(buffer));
-      str = buffer;
-    }
-
-    return str;
-  }
-#elif defined(_GNU_SOURCE)
-  std::string wfeatStrerror(int errnum)
-  {
-    std::string str;
-    char buffer[1024];
-
-    if (errnum)
-    {
-      str = strerror_r(errnum, buffer, sizeof(buffer));
-    }
-
-    return str;
-  }
-#else
-  std::string wfeatStrerror(int errnum)
-  {
-    std::string str;
-
-    if (errnum)
-    {
-      str = strerror(errnum);
-    }
-
-    return str;
-  }
-#endif
-} // namespace wfeatInternal
-
-//=====================================================================================================================
 // 
 // Global Initalization
-
-namespace wordfeat{
-
-void GlobalInit(int* pargc, char*** pargv) {
-  // Google flags.
-  ::gflags::ParseCommandLineFlags(pargc, pargv, true);
-  // Google logging.
-  ::google::InitGoogleLogging(*(pargv)[0]);
-  // Provide a backtrace on segfault.
-  ::google::InstallFailureSignalHandler();
-}
+void GlobalInit(int* pargc, char*** pargv);
 
 } // namespace wordfeat
+
