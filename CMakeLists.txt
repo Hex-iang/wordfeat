@@ -24,7 +24,7 @@ include_directories(${WordFeat_INCLUDE_DIR})
 # Set library to link
 set(WordFeat_SOURCE_DIR ${PROJECT_SOURCE_DIR}/src)
 
-include_directories(${WordFeat_LIB_DIR})
+include_directories(${WordFeat_SOURCE_DIR})
 
 add_subdirectory(src)
 
